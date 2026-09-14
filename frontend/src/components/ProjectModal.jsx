@@ -1,10 +1,28 @@
 import { X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-const ProjectModal = ({ onClose, onCreate }) => {
+const ProjectModal = ({project,onClose,onCreate,onUpdate}) => {
+  const isEditMode = Boolean(project);
+
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [color, setColor] = useState("bg-blue-500");
+  const [status, setStatus] = useState("Planning");
+
+  useEffect(() => {
+    if (project) {
+      setName(project.name || "");
+      setDescription(
+        project.description || ""
+      );
+      setStatus(
+        project.status || "Planning"
+      );
+    } else {
+      setName("");
+      setDescription("");
+      setStatus("Planning");
+    }
+  }, [project]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -13,13 +31,20 @@ const ProjectModal = ({ onClose, onCreate }) => {
       return;
     }
 
-    onCreate({
+    const projectData = {
       name: name.trim(),
-      description: description.trim() || "New project",
-      color,
-    });
+      description: description.trim(),
+      status,
+    };
 
-    onClose();
+    if (isEditMode) {
+      onUpdate(
+        project._id,
+        projectData
+      );
+    } else {
+      onCreate(projectData);
+    }
   };
 
   return (
@@ -27,32 +52,42 @@ const ProjectModal = ({ onClose, onCreate }) => {
 
       <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl">
 
+        {/* Header */}
+
         <div className="flex items-center justify-between border-b border-slate-200 p-5">
 
           <div>
             <h2 className="text-lg font-bold text-slate-900">
-              Create Project
+              {isEditMode
+                ? "Edit Project"
+                : "Create Project"}
             </h2>
 
             <p className="mt-1 text-sm text-slate-500">
-              Add a new project to your dashboard.
+              {isEditMode
+                ? "Update your project details."
+                : "Add a new project to your dashboard."}
             </p>
           </div>
 
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
+            className="rounded-lg p-2 text-slate-500 transition hover:bg-slate-100"
           >
             <X size={20} />
           </button>
 
         </div>
 
+        {/* Form */}
+
         <form
           onSubmit={handleSubmit}
           className="space-y-5 p-5"
         >
+
+          {/* Name */}
 
           <div>
             <label
@@ -66,12 +101,16 @@ const ProjectModal = ({ onClose, onCreate }) => {
               id="project-name"
               type="text"
               value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. AI Productivity App"
+              onChange={(e) =>
+                setName(e.target.value)
+              }
+              placeholder="e.g. DevFlow"
               required
-              className="w-full rounded-lg border border-slate-300 px-4 py-2.5 outline-none focus:border-blue-500"
+              className="w-full rounded-lg border border-slate-300 px-4 py-2.5 outline-none transition focus:border-blue-500"
             />
           </div>
+
+          {/* Description */}
 
           <div>
             <label
@@ -84,50 +123,68 @@ const ProjectModal = ({ onClose, onCreate }) => {
             <textarea
               id="project-description"
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              onChange={(e) =>
+                setDescription(
+                  e.target.value
+                )
+              }
               placeholder="Describe your project"
-              rows="3"
-              className="w-full resize-none rounded-lg border border-slate-300 px-4 py-2.5 outline-none focus:border-blue-500"
+              rows="4"
+              className="w-full resize-none rounded-lg border border-slate-300 px-4 py-2.5 outline-none transition focus:border-blue-500"
             />
           </div>
 
+          {/* Status */}
+
           <div>
             <label
-              htmlFor="project-color"
+              htmlFor="project-status"
               className="mb-2 block text-sm font-medium text-slate-700"
             >
-              Project color
+              Status
             </label>
 
             <select
-              id="project-color"
-              value={color}
-              onChange={(e) => setColor(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-4 py-2.5 outline-none focus:border-blue-500"
+              id="project-status"
+              value={status}
+              onChange={(e) =>
+                setStatus(e.target.value)
+              }
+              className="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 outline-none focus:border-blue-500"
             >
-              <option value="bg-blue-500">Blue</option>
-              <option value="bg-purple-500">Purple</option>
-              <option value="bg-green-500">Green</option>
-              <option value="bg-orange-500">Orange</option>
-              <option value="bg-pink-500">Pink</option>
+              <option value="Planning">
+                Planning
+              </option>
+
+              <option value="Active">
+                Active
+              </option>
+
+              <option value="Completed">
+                Completed
+              </option>
             </select>
           </div>
+
+          {/* Buttons */}
 
           <div className="flex justify-end gap-3 pt-2">
 
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
             >
               Cancel
             </button>
 
             <button
               type="submit"
-              className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
+              className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
             >
-              Create Project
+              {isEditMode
+                ? "Update Project"
+                : "Create Project"}
             </button>
 
           </div>

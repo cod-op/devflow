@@ -4,21 +4,21 @@ const taskSchema = new mongoose.Schema(
   {
     title: {
       type: String,
-      required: [true, "Task title is required"],
+      required: true,
+      minlength: 2,
       trim: true,
-      minlength: [2, "Task title must be at least 2 characters"],
     },
 
     description: {
       type: String,
-      trim: true,
       default: "",
+      trim: true,
     },
 
     project: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Project",
-      required: [true, "Project is required"],
+      required: true,
     },
 
     assignedTo: {

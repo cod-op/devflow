@@ -1,4 +1,12 @@
 import Task from "../models/Task.js";
+import Project from "../models/Project.js";
+
+const getOwnedProject = async (projectId, userId) => {
+  return Project.findOne({
+    _id: projectId,
+    owner: userId,
+  });
+};
 
 export const createTask = async (req, res, next) => {
   try {
@@ -19,20 +27,32 @@ export const createTask = async (req, res, next) => {
       });
     }
 
-    const task = await Task.create({
-      title,
-      description,
+    const ownedProject = await getOwnedProject(
       project,
-      assignedTo,
-      priority,
-      status,
-      dueDate,
+      req.user.userId
+    );
+
+    if (!ownedProject) {
+      return res.status(403).json({
+        success: false,
+        message: "You do not have access to this project",
+      });
+    }
+
+    const task = await Task.create({
+      title: title.trim(),
+      description: description?.trim() || "",
+      project,
+      assignedTo: assignedTo || null,
+      priority: priority || "Medium",
+      status: status || "todo",
+      dueDate: dueDate || null,
     });
 
     const populatedTask = await task.populate([
       {
         path: "project",
-        select: "name status",
+        select: "name status owner",
       },
       {
         path: "assignedTo",
@@ -51,7 +71,17 @@ export const createTask = async (req, res, next) => {
 
 export const getTasks = async (req, res, next) => {
   try {
-    const tasks = await Task.find()
+    const ownedProjects = await Project.find({
+      owner: req.user.userId,
+    }).select("_id");
+
+    const projectIds = ownedProjects.map(
+      (project) => project._id
+    );
+
+    const tasks = await Task.find({
+      project: { $in: projectIds },
+    })
       .populate("project", "name status")
       .populate("assignedTo", "name email")
       .sort({ createdAt: -1 });
@@ -69,13 +99,23 @@ export const getTasks = async (req, res, next) => {
 export const getTaskById = async (req, res, next) => {
   try {
     const task = await Task.findById(req.params.id)
-      .populate("project", "name status")
+      .populate("project", "name status owner")
       .populate("assignedTo", "name email");
 
     if (!task) {
       return res.status(404).json({
         success: false,
         message: "Task not found",
+      });
+    }
+
+    if (
+      task.project.owner.toString() !==
+      req.user.userId.toString()
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "You do not have access to this task",
       });
     }
 
@@ -90,6 +130,28 @@ export const getTaskById = async (req, res, next) => {
 
 export const updateTask = async (req, res, next) => {
   try {
+    const task = await Task.findById(req.params.id).populate(
+      "project",
+      "name status owner"
+    );
+
+    if (!task) {
+      return res.status(404).json({
+        success: false,
+        message: "Task not found",
+      });
+    }
+
+    if (
+      task.project.owner.toString() !==
+      req.user.userId.toString()
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "You do not have access to this task",
+      });
+    }
+
     const allowedFields = [
       "title",
       "description",
@@ -99,35 +161,31 @@ export const updateTask = async (req, res, next) => {
       "dueDate",
     ];
 
-    const updates = {};
-
     for (const field of allowedFields) {
       if (req.body[field] !== undefined) {
-        updates[field] = req.body[field];
+        task[field] =
+          typeof req.body[field] === "string"
+            ? req.body[field].trim()
+            : req.body[field];
       }
     }
 
-    const task = await Task.findByIdAndUpdate(
-      req.params.id,
-      updates,
+    await task.save();
+
+    const populatedTask = await task.populate([
       {
-        new: true,
-        runValidators: true,
-      }
-    )
-      .populate("project", "name status")
-      .populate("assignedTo", "name email");
-
-    if (!task) {
-      return res.status(404).json({
-        success: false,
-        message: "Task not found",
-      });
-    }
+        path: "project",
+        select: "name status owner",
+      },
+      {
+        path: "assignedTo",
+        select: "name email",
+      },
+    ]);
 
     res.status(200).json({
       success: true,
-      data: task,
+      data: populatedTask,
     });
   } catch (error) {
     next(error);
@@ -138,14 +196,18 @@ export const updateTaskStatus = async (req, res, next) => {
   try {
     const { status } = req.body;
 
+    const validStatuses = [
+      "todo",
+      "in-progress",
+      "done",
+    ];
+
     if (!status) {
       return res.status(400).json({
         success: false,
         message: "Status is required",
       });
     }
-
-    const validStatuses = ["todo", "in-progress", "done"];
 
     if (!validStatuses.includes(status)) {
       return res.status(400).json({
@@ -154,13 +216,9 @@ export const updateTaskStatus = async (req, res, next) => {
       });
     }
 
-    const task = await Task.findByIdAndUpdate(
-      req.params.id,
-      { status },
-      {
-        new: true,
-        runValidators: true,
-      }
+    const task = await Task.findById(req.params.id).populate(
+      "project",
+      "owner"
     );
 
     if (!task) {
@@ -170,10 +228,35 @@ export const updateTaskStatus = async (req, res, next) => {
       });
     }
 
+    if (
+      task.project.owner.toString() !==
+      req.user.userId.toString()
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "You do not have access to this task",
+      });
+    }
+
+    task.status = status;
+
+    await task.save();
+
+    const populatedTask = await task.populate([
+      {
+        path: "project",
+        select: "name status",
+      },
+      {
+        path: "assignedTo",
+        select: "name email",
+      },
+    ]);
+
     res.status(200).json({
       success: true,
       message: "Task status updated successfully",
-      data: task,
+      data: populatedTask,
     });
   } catch (error) {
     next(error);
@@ -182,7 +265,10 @@ export const updateTaskStatus = async (req, res, next) => {
 
 export const deleteTask = async (req, res, next) => {
   try {
-    const task = await Task.findByIdAndDelete(req.params.id);
+    const task = await Task.findById(req.params.id).populate(
+      "project",
+      "owner"
+    );
 
     if (!task) {
       return res.status(404).json({
@@ -190,6 +276,18 @@ export const deleteTask = async (req, res, next) => {
         message: "Task not found",
       });
     }
+
+    if (
+      task.project.owner.toString() !==
+      req.user.userId.toString()
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "You do not have access to this task",
+      });
+    }
+
+    await Task.findByIdAndDelete(req.params.id);
 
     res.status(200).json({
       success: true,

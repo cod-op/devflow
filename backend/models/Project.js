@@ -4,15 +4,15 @@ const projectSchema = new mongoose.Schema(
   {
     name: {
       type: String,
-      required: [true, "Project name is required"],
+      required: true,
+      minlength: 2,
       trim: true,
-      minlength: [2, "Project name must be at least 2 characters"],
     },
 
     description: {
       type: String,
-      trim: true,
       default: "",
+      trim: true,
     },
 
     status: {
@@ -24,7 +24,7 @@ const projectSchema = new mongoose.Schema(
     owner: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: [true, "Project owner is required"],
+      required: true,
     },
   },
   {

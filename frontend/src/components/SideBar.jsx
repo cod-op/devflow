@@ -1,34 +1,29 @@
-import {
-  BarChart3,
-  CheckSquare,
-  FolderKanban,
-  Home,
-  Settings,
-  Users,
-  X,
-} from "lucide-react";
+import {BarChart3,CheckSquare,FolderKanban,Home,LogOut,Settings,Users,X} from "lucide-react";
 
 const Sidebar = ({ isOpen, onClose }) => {
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+
+    window.location.href = "/login";
+  };
+
   return (
     <>
-      {/* Mobile Overlay */}
       {isOpen && (
         <div
           className="fixed inset-0 z-40 bg-black/40 md:hidden"
           onClick={onClose}
         />
-      )}
+      )}  
 
-      {/* Sidebar */}
       <aside
         className={`
           fixed left-0 top-0 z-50 h-screen w-64
           bg-slate-950 text-white
           transition-transform duration-300
-
           md:sticky md:top-0 md:z-30
           md:translate-x-0
-
           ${
             isOpen
               ? "translate-x-0"
@@ -36,9 +31,13 @@ const Sidebar = ({ isOpen, onClose }) => {
           }
         `}
       >
-        {/* Logo */}
+
         <div className="flex h-16 items-center justify-between border-b border-slate-800 px-5">
-          <div className="flex items-center gap-3">
+          <a
+            href="/"
+            onClick={onClose}
+            className="flex items-center gap-3"
+          >
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600 font-bold">
               D
             </div>
@@ -46,94 +45,92 @@ const Sidebar = ({ isOpen, onClose }) => {
             <h1 className="text-xl font-bold">
               DevFlow
             </h1>
-          </div>
+          </a>
 
-          {/* Close button - mobile only */}
+          {/* Mobile close button */}
+
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white md:hidden"
+            className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-800 hover:text-white md:hidden"
             aria-label="Close sidebar"
           >
             <X size={20} />
           </button>
         </div>
 
-        {/* Navigation */}
         <nav className="space-y-2 p-4">
 
-          {/* Dashboard */}
           <a
-            href="#"
-            className="flex items-center gap-3 rounded-xl bg-blue-600 px-4 py-3 text-sm font-medium text-white"
+            href="/"
+            onClick={onClose}
+            className="flex items-center gap-3 rounded-xl bg-blue-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-blue-700"
           >
             <Home size={19} />
             <span>Dashboard</span>
           </a>
 
-          {/* Projects */}
           <a
-            href="#projects"
+            href="/#projects"
+            onClick={onClose}
             className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm text-slate-300 transition hover:bg-slate-800 hover:text-white"
           >
             <FolderKanban size={19} />
             <span>Projects</span>
           </a>
 
-          {/* Tasks */}
           <a
-            href="#tasks"
+            href="/#tasks"
+            onClick={onClose}
             className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm text-slate-300 transition hover:bg-slate-800 hover:text-white"
           >
             <CheckSquare size={19} />
             <span>Tasks</span>
           </a>
 
-          {/* Team */}
-          <a
-            href="#"
-            className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm text-slate-300 transition hover:bg-slate-800 hover:text-white"
+          <div
+            className="flex cursor-not-allowed items-center gap-3 rounded-xl px-4 py-3 text-sm text-slate-500"
+            title="Team members can be selected when assigning tasks"
           >
             <Users size={19} />
             <span>Team</span>
-          </a>
 
-          {/* Analytics */}
+            <span className="ml-auto rounded-full bg-slate-800 px-2 py-0.5 text-[10px] font-medium text-slate-400">
+              Soon
+            </span>
+          </div>
+
+
           <a
-            href="#"
+            href="/analytics"
+            onClick={onClose}
             className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm text-slate-300 transition hover:bg-slate-800 hover:text-white"
           >
             <BarChart3 size={19} />
             <span>Analytics</span>
           </a>
 
-          {/* Settings */}
-          <a
-            href="#"
-            className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm text-slate-300 transition hover:bg-slate-800 hover:text-white"
+          <div
+            className="flex cursor-not-allowed items-center gap-3 rounded-xl px-4 py-3 text-sm text-slate-500"
+            title="Settings coming soon"
           >
             <Settings size={19} />
             <span>Settings</span>
-          </a>
 
-        </nav>s
+            <span className="ml-auto rounded-full bg-slate-800 px-2 py-0.5 text-[10px] font-medium text-slate-400">
+              Soon
+            </span>
+          </div>
+        </nav>
 
-        {/* Upgrade Card */}
-        <div className="absolute bottom-4 left-4 right-4 rounded-2xl bg-slate-900 p-4">
-          <h3 className="text-sm font-bold text-white">
-            Upgrade your plan
-          </h3>
-
-          <p className="mt-2 text-xs leading-5 text-slate-400">
-            Get more projects and advanced
-            features.
-          </p>
-
+        <div className="absolute bottom-4 left-4 right-4">
           <button
             type="button"
-            className="mt-4 w-full rounded-lg bg-white px-3 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-100"
+            onClick={handleLogout}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-400 transition hover:bg-red-500/20"
           >
-            Upgrade
+            <LogOut size={18} />
+            <span>Logout</span>
           </button>
         </div>
       </aside>
