@@ -1,4 +1,4 @@
-const API_URL = "https://devflow-qqud.onrender.com";
+const API_URL = "https://devflow-qqud.onrender.com/api"
 
 const getToken = () => {
   return localStorage.getItem("token");
