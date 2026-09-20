@@ -18,7 +18,7 @@ const app = express();
 
 app.disable("x-powered-by");
 
-const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:5173")
+const allowedOrigins = (process.env.CLIENT_URL || "hhttps://taskmanager-pi-liart.vercel.app")
   .split(",")
   .map((origin) => origin.trim())
   .filter(Boolean);
