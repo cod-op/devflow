@@ -1,5 +1,5 @@
 const API_URL = (
-  import.meta.env.VITE_API_URL || "http://localhost:5000/api"
+  import.meta.env.VITE_API_URL || "https://devflow-qqud.onrender.com"
 ).replace(/\/$/, "");
 
 const getToken = () => localStorage.getItem("token");
