@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { LockKeyhole, Save, UserRound } from "lucide-react";
-import Sidebar from "../components/SideBar";
-import Navbar from "../components/Navbar";
+import Sidebar from "../components/SideBar.jsx";
+import Navbar from "../components/Navbar.jsx";
 import { getCurrentUser, updateUser } from "../service/api.js";
-import { useToast } from "../components/Toast";
+import { useToast } from "../components/Toast.jsx";
 
 const Settings = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
