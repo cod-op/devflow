@@ -1,5 +1,5 @@
 const API_URL = (
-  import.meta.env.VITE_API_URL || "https://devflow-qqud.onrender.com"
+  import.meta.env.VITE_API_URL || "https://devflow-qqud.onrender.com/api"
 ).replace(/\/$/, "");
 
 const getToken = () => localStorage.getItem("token");
