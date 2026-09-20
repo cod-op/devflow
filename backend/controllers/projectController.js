@@ -3,26 +3,30 @@ import Task from "../models/Task.js";
 
 export const createProject = async (req, res, next) => {
   try {
-    const { name, description, status } = req.body;
+    const { name, description, status, members = [] } = req.body;
 
-    if (!name) {
+    if (!name || name.trim().length < 2) {
       return res.status(400).json({
         success: false,
-        message: "Project name is required",
+        message: "Project name must be at least 2 characters",
       });
     }
+
+    const uniqueMembers = [...new Set((Array.isArray(members) ? members : []).map(String))]
+      .filter((id) => id !== req.user.userId.toString());
 
     const project = await Project.create({
       name: name.trim(),
       description: description?.trim() || "",
       status: status || "Planning",
       owner: req.user.userId,
+      members: uniqueMembers,
     });
 
-    const populatedProject = await project.populate(
-      "owner",
-      "name email"
-    );
+    const populatedProject = await project.populate([
+      { path: "owner", select: "name email" },
+      { path: "members", select: "name email role" },
+    ]);
 
     res.status(201).json({
       success: true,
@@ -36,9 +40,13 @@ export const createProject = async (req, res, next) => {
 export const getProjects = async (req, res, next) => {
   try {
     const projects = await Project.find({
-      owner: req.user.userId,
+      $or: [
+        { owner: req.user.userId },
+        { members: req.user.userId },
+      ],
     })
       .populate("owner", "name email")
+      .populate("members", "name email role")
       .sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -55,8 +63,10 @@ export const getProjectById = async (req, res, next) => {
   try {
     const project = await Project.findOne({
       _id: req.params.id,
-      owner: req.user.userId,
-    }).populate("owner", "name email");
+      $or: [{ owner: req.user.userId }, { members: req.user.userId }],
+    })
+      .populate("owner", "name email")
+      .populate("members", "name email role");
 
     if (!project) {
       return res.status(404).json({
@@ -80,17 +90,27 @@ export const updateProject = async (req, res, next) => {
       "name",
       "description",
       "status",
+      "members",
     ];
 
     const updates = {};
 
     for (const field of allowedFields) {
       if (req.body[field] !== undefined) {
-        updates[field] =
-          typeof req.body[field] === "string"
-            ? req.body[field].trim()
-            : req.body[field];
+        if (field === "members") {
+          updates[field] = [...new Set((Array.isArray(req.body[field]) ? req.body[field] : []).map(String))]
+            .filter((id) => id !== req.user.userId.toString());
+        } else {
+          updates[field] =
+            typeof req.body[field] === "string"
+              ? req.body[field].trim()
+              : req.body[field];
+        }
       }
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ success: false, message: "No valid fields provided for update" });
     }
 
     const project = await Project.findOneAndUpdate(
@@ -103,7 +123,7 @@ export const updateProject = async (req, res, next) => {
         new: true,
         runValidators: true,
       }
-    ).populate("owner", "name email");
+    ).populate([{ path: "owner", select: "name email" }, { path: "members", select: "name email role" }]);
 
     if (!project) {
       return res.status(404).json({

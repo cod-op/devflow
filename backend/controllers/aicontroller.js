@@ -5,6 +5,10 @@ import Task from "../models/Task.js";
 
 export const generateTasks = async (req, res, next) => {
   try {
+    // ==========================================
+    // CHECK GEMINI API KEY
+    // ==========================================
+
     if (!process.env.GEMINI_API_KEY) {
       return res.status(500).json({
         success: false,
@@ -12,12 +16,17 @@ export const generateTasks = async (req, res, next) => {
       });
     }
 
-
+    // ==========================================
+    // INITIALIZE GEMINI
+    // ==========================================
 
     const ai = new GoogleGenAI({
       apiKey: process.env.GEMINI_API_KEY,
     });
 
+    // ==========================================
+    // GET REQUEST DATA
+    // ==========================================
 
     const { projectId, count = 8 } = req.body;
 
@@ -28,7 +37,9 @@ export const generateTasks = async (req, res, next) => {
       });
     }
 
-
+    // ==========================================
+    // FIND PROJECT
+    // ==========================================
 
     const project = await Project.findOne({
       _id: projectId,
@@ -42,13 +53,18 @@ export const generateTasks = async (req, res, next) => {
       });
     }
 
+    // ==========================================
+    // VALIDATE TASK COUNT
+    // ==========================================
 
     const safeCount = Math.min(
       Math.max(Number(count) || 8, 1),
       15
     );
 
- 
+    // ==========================================
+    // PROMPT
+    // ==========================================
 
     const prompt = `
 You are an expert software project manager.
@@ -92,18 +108,14 @@ Rules:
 - simple tasks can have earlier due dates
 `;
 
-    // ==============================
-    // TRY GEMINI MODELS
-    // ==============================
 
-    let response;
-    let lastError;
+    const primaryModel =
+      process.env.GEMINI_MODEL || "gemini-3.6-flash";
 
-    const models = [
-      process.env.GEMINI_MODEL || "gemini-3.8-flash",
-      "gemini-3.7-flash",
-      "gemini-3.6-flash",
-    ];
+    const models = [primaryModel];
+
+    let response = null;
+    let lastError = null;
 
     for (const model of models) {
       try {
@@ -111,11 +123,10 @@ Rules:
           `Trying Gemini model: ${model}`
         );
 
-        response =
-          await ai.models.generateContent({
-            model,
-            contents: prompt,
-          });
+        response = await ai.models.generateContent({
+          model,
+          contents: prompt,
+        });
 
         console.log(
           `Gemini success with model: ${model}`
@@ -127,26 +138,45 @@ Rules:
 
         console.error(
           `Gemini model ${model} failed:`,
-          error.message
+          error?.message || error
         );
 
-        // Try next model only for temporary errors
-        if (error.status !== 503) {
+
+        if (error?.status === 404) {
+          return res.status(502).json({
+            success: false,
+            message:
+              `Gemini model "${model}" is unavailable. ` +
+              `Please update GEMINI_MODEL in your .env file.`,
+            error:
+              error?.message || "Model not found",
+          });
+        }
+
+
+        if (
+          error?.status !== 429 &&
+          error?.status !== 500 &&
+          error?.status !== 502 &&
+          error?.status !== 503
+        ) {
           throw error;
         }
       }
     }
 
+
     if (!response) {
-      throw lastError;
+      throw lastError || new Error(
+        "Gemini did not return a response"
+      );
     }
 
-  
 
     let text = response.text || "";
 
     console.log(
-      "Gemini response:",
+      "Gemini raw response:",
       text
     );
 
@@ -155,7 +185,21 @@ Rules:
       .replace(/```/g, "")
       .trim();
 
- 
+
+    const firstBracket = text.indexOf("[");
+    const lastBracket = text.lastIndexOf("]");
+
+    if (
+      firstBracket !== -1 &&
+      lastBracket !== -1 &&
+      lastBracket > firstBracket
+    ) {
+      text = text.slice(
+        firstBracket,
+        lastBracket + 1
+      );
+    }
+
 
     let tasks;
 
@@ -165,6 +209,11 @@ Rules:
       console.error(
         "Gemini JSON parse error:",
         error
+      );
+
+      console.error(
+        "Invalid Gemini response:",
+        text
       );
 
       return res.status(502).json({
@@ -182,9 +231,9 @@ Rules:
       });
     }
 
-    // ==============================
+    // ==========================================
     // CLEAN AI TASKS
-    // ==============================
+    // ==========================================
 
     const cleanedTasks = tasks
       .slice(0, safeCount)
@@ -192,7 +241,7 @@ Rules:
         let validDueDate = null;
 
         if (
-          task.dueDate &&
+          task?.dueDate &&
           /^\d{4}-\d{2}-\d{2}$/.test(
             String(task.dueDate)
           )
@@ -201,23 +250,24 @@ Rules:
             String(task.dueDate);
         }
 
+        const priority = [
+          "High",
+          "Medium",
+          "Low",
+        ].includes(task?.priority)
+          ? task.priority
+          : "Medium";
+
         return {
           title: String(
-            task.title || ""
+            task?.title || ""
           ).trim(),
 
           description: String(
-            task.description || ""
+            task?.description || ""
           ).trim(),
 
-          priority:
-            [
-              "High",
-              "Medium",
-              "Low",
-            ].includes(task.priority)
-              ? task.priority
-              : "Medium",
+          priority,
 
           status: "todo",
 
@@ -229,6 +279,7 @@ Rules:
           task.title.length >= 2
       );
 
+
     if (cleanedTasks.length === 0) {
       return res.status(502).json({
         success: false,
@@ -237,31 +288,26 @@ Rules:
       });
     }
 
-    // ==============================
-    // SAVE TASKS TO MONGODB
-    // ==============================
 
     const tasksToSave =
-      cleanedTasks.map(
-        (task) => ({
-          title: task.title,
+      cleanedTasks.map((task) => ({
+        title: task.title,
 
-          description:
-            task.description,
+        description:
+          task.description,
 
-          project: project._id,
+        project: project._id,
 
-          assignedTo: null,
+        assignedTo: null,
 
-          priority:
-            task.priority,
+        priority:
+          task.priority,
 
-          status: "todo",
+        status: "todo",
 
-          dueDate:
-            task.dueDate || null,
-        })
-      );
+        dueDate:
+          task.dueDate || null,
+      }));
 
     const savedTasks =
       await Task.insertMany(
@@ -272,16 +318,12 @@ Rules:
       `${savedTasks.length} AI tasks saved to MongoDB`
     );
 
-    // ==============================
-    // POPULATE SAVED TASKS
-    // ==============================
 
     const populatedTasks =
       await Task.find({
         _id: {
           $in: savedTasks.map(
-            (task) =>
-              task._id
+            (task) => task._id
           ),
         },
       })
@@ -297,10 +339,6 @@ Rules:
           createdAt: -1,
         });
 
-    // ==============================
-    // SEND RESPONSE
-    // ==============================
-
     return res.status(200).json({
       success: true,
       count: populatedTasks.length,
@@ -315,7 +353,7 @@ Rules:
     return res.status(500).json({
       success: false,
       message:
-        error.message ||
+        error?.message ||
         "AI task generation failed",
     });
   }
