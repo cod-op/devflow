@@ -19,6 +19,13 @@ const TaskModal = ({
   const [status, setStatus] = useState("todo");
   const [dueDate, setDueDate] = useState("");
 
+  const selectedProject = projects.find((item) => item._id === project);
+  const projectMembers = selectedProject?.members || [];
+  const owner = selectedProject?.owner ? [selectedProject.owner] : [];
+  const eligibleUsers = [...owner, ...projectMembers].filter((user, index, list) =>
+    user && list.findIndex((item) => item._id === user._id) === index
+  );
+
   useEffect(() => {
     if (task) {
       setTitle(task.title || "");
@@ -235,7 +242,7 @@ const TaskModal = ({
                 Unassigned
               </option>
 
-              {users.map((user) => (
+              {eligibleUsers.map((user) => (
                 <option
                   key={user._id}
                   value={user._id}

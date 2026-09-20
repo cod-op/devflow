@@ -1,126 +1,119 @@
-import {BarChart3,CheckSquare,FolderKanban,Home,LogOut,Settings,Users,X} from "lucide-react";
+import {
+  BarChart3,
+  CheckSquare,
+  FolderKanban,
+  Home,
+  LogOut,
+  Settings,
+  Users,
+  X,
+} from "lucide-react";
+import { NavLink, Link, useNavigate } from "react-router-dom";
+
+const navItems = [
+  { to: "/", label: "Dashboard", icon: Home, end: true },
+  { to: "/#projects", label: "Projects", icon: FolderKanban, hash: true },
+  { to: "/#tasks", label: "Tasks", icon: CheckSquare, hash: true },
+  { to: "/analytics", label: "Analytics", icon: BarChart3 },
+];
 
 const Sidebar = ({ isOpen, onClose }) => {
+  const navigate = useNavigate();
+
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
-
-    window.location.href = "/login";
+    navigate("/login", { replace: true });
+    onClose?.();
   };
+
+  const linkClass = ({ isActive }) =>
+    `flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition ${
+      isActive
+        ? "bg-blue-600 text-white shadow-sm"
+        : "text-slate-300 hover:bg-slate-800 hover:text-white"
+    }`;
 
   return (
     <>
       {isOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/40 md:hidden"
+          className="fixed inset-0 z-40 bg-slate-950/50 backdrop-blur-sm md:hidden"
           onClick={onClose}
+          aria-hidden="true"
         />
-      )}  
+      )}
 
       <aside
-        className={`
-          fixed left-0 top-0 z-50 h-screen w-64
-          bg-slate-950 text-white
-          transition-transform duration-300
-          md:sticky md:top-0 md:z-30
-          md:translate-x-0
-          ${
-            isOpen
-              ? "translate-x-0"
-              : "-translate-x-full"
-          }
-        `}
+        className={`fixed left-0 top-0 z-50 h-screen w-64 bg-slate-950 text-white transition-transform duration-300 md:sticky md:top-0 md:z-30 md:translate-x-0 ${
+          isOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
       >
-
         <div className="flex h-16 items-center justify-between border-b border-slate-800 px-5">
-          <a
-            href="/"
+          <Link
+            to="/"
             onClick={onClose}
             className="flex items-center gap-3"
           >
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600 font-bold">
               D
             </div>
-
-            <h1 className="text-xl font-bold">
-              DevFlow
-            </h1>
-          </a>
-
-          {/* Mobile close button */}
+            <h1 className="text-xl font-bold tracking-tight">DevFlow</h1>
+          </Link>
 
           <button
             type="button"
             onClick={onClose}
             className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-800 hover:text-white md:hidden"
-            aria-label="Close sidebar"
+            aria-label="Close navigation menu"
           >
             <X size={20} />
           </button>
         </div>
 
-        <nav className="space-y-2 p-4">
+        <nav className="space-y-2 p-4" aria-label="Main navigation">
+          {navItems.map(({ to, label, icon: Icon, end, hash }) =>
+            hash ? (
+              <a
+                key={label}
+                href={to}
+                onClick={onClose}
+                className={linkClass({ isActive: false })}
+              >
+                <Icon size={19} />
+                <span>{label}</span>
+              </a>
+            ) : (
+              <NavLink
+                key={label}
+                to={to}
+                end={end}
+                onClick={onClose}
+                className={linkClass}
+              >
+                <Icon size={19} />
+                <span>{label}</span>
+              </NavLink>
+            )
+          )}
 
-          <a
-            href="/"
+          <NavLink
+            to="/team"
             onClick={onClose}
-            className="flex items-center gap-3 rounded-xl bg-blue-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-blue-700"
-          >
-            <Home size={19} />
-            <span>Dashboard</span>
-          </a>
-
-          <a
-            href="/#projects"
-            onClick={onClose}
-            className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm text-slate-300 transition hover:bg-slate-800 hover:text-white"
-          >
-            <FolderKanban size={19} />
-            <span>Projects</span>
-          </a>
-
-          <a
-            href="/#tasks"
-            onClick={onClose}
-            className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm text-slate-300 transition hover:bg-slate-800 hover:text-white"
-          >
-            <CheckSquare size={19} />
-            <span>Tasks</span>
-          </a>
-
-          <div
-            className="flex cursor-not-allowed items-center gap-3 rounded-xl px-4 py-3 text-sm text-slate-500"
-            title="Team members can be selected when assigning tasks"
+            className={linkClass}
           >
             <Users size={19} />
             <span>Team</span>
+          </NavLink>
 
-            <span className="ml-auto rounded-full bg-slate-800 px-2 py-0.5 text-[10px] font-medium text-slate-400">
-              Soon
-            </span>
-          </div>
-
-
-          <a
-            href="/analytics"
+          <NavLink
+            to="/settings"
             onClick={onClose}
-            className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm text-slate-300 transition hover:bg-slate-800 hover:text-white"
-          >
-            <BarChart3 size={19} />
-            <span>Analytics</span>
-          </a>
-
-          <div
-            className="flex cursor-not-allowed items-center gap-3 rounded-xl px-4 py-3 text-sm text-slate-500"
-            title="Settings coming soon"
+            className={linkClass}
           >
             <Settings size={19} />
             <span>Settings</span>
-
-            <span className="ml-auto rounded-full bg-slate-800 px-2 py-0.5 text-[10px] font-medium text-slate-400">
-              Soon
-            </span>
-          </div>
+          </NavLink>
         </nav>
 
         <div className="absolute bottom-4 left-4 right-4">

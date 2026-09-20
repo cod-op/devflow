@@ -1,441 +1,123 @@
-const API_URL = "https://devflow-qqud.onrender.com/api"
+const API_URL = (
+  import.meta.env.VITE_API_URL || "http://localhost:5000/api"
+).replace(/\/$/, "");
 
-const getToken = () => {
-  return localStorage.getItem("token");
-};
+const getToken = () => localStorage.getItem("token");
 
-const getHeaders = () => {
-  const token = getToken();
+const request = async (path, options = {}) => {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), 15000);
 
-  return {
-    "Content-Type": "application/json",
-    ...(token
-      ? {
-          Authorization: `Bearer ${token}`,
-        }
-      : {}),
-  };
-};
+  try {
+    const token = getToken();
 
-// ==================== AUTH ====================
+    const response = await fetch(`${API_URL}${path}`, {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(options.headers || {}),
+      },
+    });
 
-export const registerUser = async (userData) => {
-  const response = await fetch(`${API_URL}/auth/register`, {
-    method: "POST",
-    headers: getHeaders(),
-    body: JSON.stringify(userData),
-  });
+    const contentType = response.headers.get("content-type") || "";
+    const data = contentType.includes("application/json")
+      ? await response.json()
+      : null;
 
-  const data = await response.json();
+    if (!response.ok) {
+      if (response.status === 401) {
+        window.dispatchEvent(new Event("auth:expired"));
+      }
 
-  if (!response.ok) {
-    throw new Error(data.message || "Registration failed");
-  }
-
-  return data;
-};
-
-export const loginUser = async (userData) => {
-  const response = await fetch(`${API_URL}/auth/login`, {
-    method: "POST",
-    headers: getHeaders(),
-    body: JSON.stringify(userData),
-  });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.message || "Login failed");
-  }
-
-  return data;
-};
-
-export const getCurrentUser = async () => {
-  const response = await fetch(`${API_URL}/auth/me`, {
-    method: "GET",
-    headers: getHeaders(),
-  });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(
-      data.message || "Failed to get current user"
-    );
-  }
-
-  return data;
-};
-
-// ==================== PROJECTS ====================
-
-export const getProjects = async () => {
-  const response = await fetch(`${API_URL}/projects`, {
-    method: "GET",
-    headers: getHeaders(),
-  });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(
-      data.message || "Failed to fetch projects"
-    );
-  }
-
-  return data;
-};
-
-export const getProject = async (projectId) => {
-  const response = await fetch(
-    `${API_URL}/projects/${projectId}`,
-    {
-      method: "GET",
-      headers: getHeaders(),
+      throw new Error(
+        data?.message || `Request failed with status ${response.status}`
+      );
     }
+
+    return data;
+  } catch (error) {
+    if (error.name === "AbortError") {
+      throw new Error("Request timed out. Please try again.");
+    }
+
+    throw error;
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+};
+
+const jsonRequest = (method, body) => ({
+  method,
+  body: JSON.stringify(body),
+});
+
+export const registerUser = (userData) =>
+  request("/auth/register", jsonRequest("POST", userData));
+
+export const loginUser = (userData) =>
+  request("/auth/login", jsonRequest("POST", userData));
+
+export const getCurrentUser = () =>
+  request("/auth/me");
+
+export const getProjects = () =>
+  request("/projects");
+
+export const getProject = (projectId) =>
+  request(`/projects/${projectId}`);
+
+export const createProject = (projectData) =>
+  request("/projects", jsonRequest("POST", projectData));
+
+export const updateProject = (projectId, projectData) =>
+  request(`/projects/${projectId}`, jsonRequest("PUT", projectData));
+
+export const deleteProject = (projectId) =>
+  request(`/projects/${projectId}`, { method: "DELETE" });
+
+export const getTasks = () =>
+  request("/tasks");
+
+export const getTask = (taskId) =>
+  request(`/tasks/${taskId}`);
+
+export const createTask = (taskData) =>
+  request("/tasks", jsonRequest("POST", taskData));
+
+export const updateTask = (taskId, taskData) =>
+  request(`/tasks/${taskId}`, jsonRequest("PUT", taskData));
+
+export const updateTaskStatus = (taskId, status) =>
+  request(
+    `/tasks/${taskId}/status`,
+    jsonRequest("PATCH", { status })
   );
 
-  const data = await response.json();
+export const deleteTask = (taskId) =>
+  request(`/tasks/${taskId}`, { method: "DELETE" });
 
-  if (!response.ok) {
-    throw new Error(
-      data.message || "Failed to fetch project"
-    );
-  }
+export const getUsers = () =>
+  request("/users");
 
-  return data;
-};
+export const getUser = (userId) =>
+  request(`/users/${userId}`);
 
-export const createProject = async (projectData) => {
-  const response = await fetch(`${API_URL}/projects`, {
-    method: "POST",
-    headers: getHeaders(),
-    body: JSON.stringify(projectData),
-  });
+export const createUser = (userData) =>
+  request("/users", jsonRequest("POST", userData));
 
-  const data = await response.json();
+export const updateUser = (userId, userData) =>
+  request(`/users/${userId}`, jsonRequest("PUT", userData));
 
-  if (!response.ok) {
-    throw new Error(
-      data.message || "Failed to create project"
-    );
-  }
+export const deleteUser = (userId) =>
+  request(`/users/${userId}`, { method: "DELETE" });
 
-  return data;
-};
-
-export const updateProject = async (
-  projectId,
-  projectData
-) => {
-  const response = await fetch(
-    `${API_URL}/projects/${projectId}`,
-    {
-      method: "PUT",
-      headers: getHeaders(),
-      body: JSON.stringify(projectData),
-    }
+export const generateAITasks = (projectId, count = 8) =>
+  request(
+    "/ai/generate-tasks",
+    jsonRequest("POST", { projectId, count })
   );
 
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(
-      data.message || "Failed to update project"
-    );
-  }
-
-  return data;
-};
-
-export const deleteProject = async (projectId) => {
-  const response = await fetch(
-    `${API_URL}/projects/${projectId}`,
-    {
-      method: "DELETE",
-      headers: getHeaders(),
-    }
-  );
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(
-      data.message || "Failed to delete project"
-    );
-  }
-
-  return data;
-};
-
-// ==================== TASKS ====================
-
-export const getTasks = async () => {
-  const response = await fetch(`${API_URL}/tasks`, {
-    method: "GET",
-    headers: getHeaders(),
-  });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(
-      data.message || "Failed to fetch tasks"
-    );
-  }
-
-  return data;
-};
-
-export const getTask = async (taskId) => {
-  const response = await fetch(
-    `${API_URL}/tasks/${taskId}`,
-    {
-      method: "GET",
-      headers: getHeaders(),
-    }
-  );
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(
-      data.message || "Failed to fetch task"
-    );
-  }
-
-  return data;
-};
-
-export const createTask = async (taskData) => {
-  const response = await fetch(`${API_URL}/tasks`, {
-    method: "POST",
-    headers: getHeaders(),
-    body: JSON.stringify(taskData),
-  });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(
-      data.message || "Failed to create task"
-    );
-  }
-
-  return data;
-};
-
-export const updateTask = async (
-  taskId,
-  taskData
-) => {
-  const response = await fetch(
-    `${API_URL}/tasks/${taskId}`,
-    {
-      method: "PUT",
-      headers: getHeaders(),
-      body: JSON.stringify(taskData),
-    }
-  );
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(
-      data.message || "Failed to update task"
-    );
-  }
-
-  return data;
-};
-
-export const updateTaskStatus = async (
-  taskId,
-  status
-) => {
-  const response = await fetch(
-    `${API_URL}/tasks/${taskId}/status`,
-    {
-      method: "PATCH",
-      headers: getHeaders(),
-      body: JSON.stringify({
-        status,
-      }),
-    }
-  );
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(
-      data.message || "Failed to update task status"
-    );
-  }
-
-  return data;
-};
-
-export const deleteTask = async (taskId) => {
-  const response = await fetch(
-    `${API_URL}/tasks/${taskId}`,
-    {
-      method: "DELETE",
-      headers: getHeaders(),
-    }
-  );
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(
-      data.message || "Failed to delete task"
-    );
-  }
-
-  return data;
-};
-
-// ==================== USERS ====================
-
-export const getUsers = async () => {
-  const response = await fetch(`${API_URL}/users`, {
-    method: "GET",
-    headers: getHeaders(),
-  });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(
-      data.message || "Failed to fetch users"
-    );
-  }
-
-  return data;
-};
-
-export const getUser = async (userId) => {
-  const response = await fetch(
-    `${API_URL}/users/${userId}`,
-    {
-      method: "GET",
-      headers: getHeaders(),
-    }
-  );
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(
-      data.message || "Failed to fetch user"
-    );
-  }
-
-  return data;
-};
-
-export const createUser = async (userData) => {
-  const response = await fetch(`${API_URL}/users`, {
-    method: "POST",
-    headers: getHeaders(),
-    body: JSON.stringify(userData),
-  });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(
-      data.message || "Failed to create user"
-    );
-  }
-
-  return data;
-};
-
-export const updateUser = async (
-  userId,
-  userData
-) => {
-  const response = await fetch(
-    `${API_URL}/users/${userId}`,
-    {
-      method: "PUT",
-      headers: getHeaders(),
-      body: JSON.stringify(userData),
-    }
-  );
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(
-      data.message || "Failed to update user"
-    );
-  }
-
-  return data;
-};
-
-export const deleteUser = async (userId) => {
-  const response = await fetch(
-    `${API_URL}/users/${userId}`,
-    {
-      method: "DELETE",
-      headers: getHeaders(),
-    }
-  );
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(
-      data.message || "Failed to delete user"
-    );
-  }
-
-  return data;
-};
-
-
-export const generateAITasks = async (projectId, count = 8) => {
-  const response = await fetch(`${API_URL}/ai/generate-tasks`, {
-    method: "POST",
-    headers: getHeaders(),
-    body: JSON.stringify({
-      projectId,
-      count,
-    }),
-  });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(
-      data.message || "Failed to generate AI tasks"
-    );
-  }
-
-  return data;
-};
-// ==================== ANALYTICS ====================
-
-export const getAnalytics = async () => {
-  const response = await fetch(
-    `${API_URL}/analytics`,
-    {
-      method: "GET",
-      headers: getHeaders(),
-    }
-  );
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(
-      data.message || "Failed to fetch analytics"
-    );
-  }
-
-  return data;
-};
+export const getAnalytics = () =>
+  request("/analytics");

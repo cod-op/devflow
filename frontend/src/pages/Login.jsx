@@ -85,6 +85,7 @@ const Login = () => {
             </label>
 
             <input
+              autoComplete="email"
               type="email"
               value={email}
               onChange={(event) =>
@@ -104,6 +105,7 @@ const Login = () => {
             </label>
 
             <input
+              autoComplete="current-password"
               type="password"
               value={password}
               onChange={(event) =>

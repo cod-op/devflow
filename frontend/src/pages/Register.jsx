@@ -91,6 +91,7 @@ const Register = () => {
             </label>
 
             <input
+              autoComplete="name"
               type="text"
               value={name}
               onChange={(event) =>
@@ -111,6 +112,7 @@ const Register = () => {
             </label>
 
             <input
+              autoComplete="email"
               type="email"
               value={email}
               onChange={(event) =>
@@ -130,6 +132,7 @@ const Register = () => {
             </label>
 
             <input
+              autoComplete="new-password"
               type="password"
               value={password}
               onChange={(event) =>
@@ -137,9 +140,9 @@ const Register = () => {
                   event.target.value
                 )
               }
-              placeholder="Minimum 6 characters"
+              placeholder="Minimum 8 characters"
               required
-              minLength={6}
+              minLength={8}
               className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
             />
           </div>

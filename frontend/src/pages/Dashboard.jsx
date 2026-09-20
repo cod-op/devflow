@@ -14,7 +14,7 @@ import {
   updateTaskStatus,
 } from "../service/api.js";
 
-import {Bot,ClipboardPlus,FolderPlus,Search} from "lucide-react";
+import { Bot, ClipboardPlus, FolderPlus, Search } from "lucide-react";
 
 import Sidebar from "../components/SideBar";
 import Navbar from "../components/Navbar";
@@ -24,6 +24,7 @@ import TaskCard from "../components/TaskCard";
 import ProjectModal from "../components/ProjectModal";
 import TaskModal from "../components/TaskModal";
 import AITaskModal from "../components/AiTaskModal";
+import { useToast } from "../components/Toast";
 
 const Dashboard = () => {
   const [projects, setProjects] = useState([]);
@@ -79,6 +80,11 @@ const [aiLoading, setAiLoading] = useState(false);
           error
         );
 
+        showToast(
+          error?.message || "Unable to load dashboard data.",
+          "error"
+        );
+
         const message =
           error?.message?.toLowerCase() || "";
 
@@ -97,6 +103,17 @@ const [aiLoading, setAiLoading] = useState(false);
     };
 
     loadData();
+  }, []);
+
+  useEffect(() => {
+    const handleAuthExpired = () => {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      window.location.assign("/login");
+    };
+
+    window.addEventListener("auth:expired", handleAuthExpired);
+    return () => window.removeEventListener("auth:expired", handleAuthExpired);
   }, []);
 
   // ==================== SEARCH + FILTER ====================
@@ -151,10 +168,22 @@ const [aiLoading, setAiLoading] = useState(false);
     ).length;
 
   const inProgressTasks =
-    tasks.filter(
-      (task) =>
-        task.status === "in-progress"
-    ).length;
+    tasks.filter((task) => task.status === "in-progress").length;
+
+  const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+  const overdueTasks = tasks.filter(
+    (task) => task.status !== "done" && task.dueDate && new Date(task.dueDate) < new Date()
+  ).length;
+
+  const projectProgress = (projectId) => {
+    const projectTasks = tasks.filter((task) => String(task.project?._id || task.project) === String(projectId));
+    const completed = projectTasks.filter((task) => task.status === "done").length;
+    return {
+      total: projectTasks.length,
+      completed,
+      progress: projectTasks.length ? Math.round((completed / projectTasks.length) * 100) : 0,
+    };
+  };
 
   // ==================== PROJECT CREATE ====================
 
@@ -170,6 +199,7 @@ const [aiLoading, setAiLoading] = useState(false);
             "New development project",
           status:
             data.status || "Planning",
+          members: data.members || [],
         });
 
       const newProject =
@@ -182,19 +212,14 @@ const [aiLoading, setAiLoading] = useState(false);
 
       setShowProjectModal(false);
 
-      alert(
-        "Project created successfully!"
-      );
+      showToast("Project created successfully.", "success");
     } catch (error) {
       console.error(
         "Create project failed:",
         error
       );
 
-      alert(
-        error.message ||
-          "Failed to create project"
-      );
+      showToast(error.message || "Failed to create project.", "error");
     }
   };
 
@@ -208,7 +233,7 @@ const [aiLoading, setAiLoading] = useState(false);
       const response =
         await updateProject(
           projectId,
-          data
+          { ...data, members: data.members || [] }
         );
 
       const updatedProject =
@@ -225,19 +250,14 @@ const [aiLoading, setAiLoading] = useState(false);
       setEditingProject(null);
       setShowProjectModal(false);
 
-      alert(
-        "Project updated successfully!"
-      );
+      showToast("Project updated successfully.", "success");
     } catch (error) {
       console.error(
         "Update project failed:",
         error
       );
 
-      alert(
-        error.message ||
-          "Failed to update project"
-      );
+      showToast(error.message || "Failed to update project.", "error");
     }
   };
 
@@ -272,19 +292,14 @@ const [aiLoading, setAiLoading] = useState(false);
         )
       );
 
-      alert(
-        "Project deleted successfully!"
-      );
+      showToast("Project deleted successfully.", "success");
     } catch (error) {
       console.error(
         "Delete project failed:",
         error
       );
 
-      alert(
-        error.message ||
-          "Failed to delete project"
-      );
+      showToast(error.message || "Failed to delete project.", "error");
     }
   };
 
@@ -319,19 +334,14 @@ const [aiLoading, setAiLoading] = useState(false);
 
       setShowTaskModal(false);
 
-      alert(
-        "Task created successfully!"
-      );
+      showToast("Task created successfully.", "success");
     } catch (error) {
       console.error(
         "Create task failed:",
         error
       );
 
-      alert(
-        error.message ||
-          "Failed to create task"
-      );
+      showToast(error.message || "Failed to create task.", "error");
     }
   };
 
@@ -362,19 +372,14 @@ const [aiLoading, setAiLoading] = useState(false);
       setEditingTask(null);
       setShowTaskModal(false);
 
-      alert(
-        "Task updated successfully!"
-      );
+      showToast("Task updated successfully.", "success");
     } catch (error) {
       console.error(
         "Update task failed:",
         error
       );
 
-      alert(
-        error.message ||
-          "Failed to update task"
-      );
+      showToast(error.message || "Failed to update task.", "error");
     }
   };
 
@@ -400,46 +405,27 @@ const [aiLoading, setAiLoading] = useState(false);
         )
       );
 
-      alert(
-        "Task deleted successfully!"
-      );
+      showToast("Task deleted successfully.", "success");
     } catch (error) {
       console.error(
         "Delete task failed:",
         error
       );
 
-      alert(
-        error.message ||
-          "Failed to delete task"
-      );
+      showToast(error.message || "Failed to delete task.", "error");
     }
   };
 
   // ==================== TOGGLE TASK ====================
 
-  const handleToggleTask = async (
-    taskId
-  ) => {
+  const handleToggleTask = async (taskId, requestedStatus) => {
     try {
-      const selectedTask =
-        tasks.find(
-          (task) =>
-            task._id === taskId
-        );
-
+      const selectedTask = tasks.find((task) => task._id === taskId);
       if (!selectedTask) return;
 
-      const newStatus =
-        selectedTask.status === "done"
-          ? "todo"
-          : "done";
+      const newStatus = requestedStatus || (selectedTask.status === "todo" ? "in-progress" : selectedTask.status === "in-progress" ? "done" : "todo");
 
-      const response =
-        await updateTaskStatus(
-          taskId,
-          newStatus
-        );
+      const response = await updateTaskStatus(taskId, newStatus);
 
       const updatedTask =
         response.data || response;
@@ -460,10 +446,7 @@ const [aiLoading, setAiLoading] = useState(false);
         error
       );
 
-      alert(
-        error.message ||
-          "Failed to update task"
-      );
+      showToast(error.message || "Failed to update task.", "error");
     }
   };
 
@@ -625,6 +608,26 @@ const handleGenerateAITasks = async (projectId, count) => {
 
               </div>
 
+              <section className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-3">
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-2">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-700">Delivery progress</p>
+                      <p className="mt-1 text-xs text-slate-500">Overall completion across your visible tasks</p>
+                    </div>
+                    <span className="text-2xl font-bold text-slate-900">{completionRate}%</span>
+                  </div>
+                  <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-slate-100">
+                    <div className="h-full rounded-full bg-blue-600 transition-all" style={{ width: `${completionRate}%` }} />
+                  </div>
+                </div>
+                <div className={`rounded-2xl border p-5 shadow-sm ${overdueTasks ? "border-red-100 bg-red-50" : "border-emerald-100 bg-emerald-50"}`}>
+                  <p className="text-sm font-semibold text-slate-700">Due-date health</p>
+                  <p className={`mt-2 text-2xl font-bold ${overdueTasks ? "text-red-700" : "text-emerald-700"}`}>{overdueTasks}</p>
+                  <p className="mt-1 text-xs text-slate-600">{overdueTasks ? "open tasks are overdue" : "no open tasks are overdue"}</p>
+                </div>
+              </section>
+
               {/* PROJECTS */}
 
               <section
@@ -679,19 +682,17 @@ const handleGenerateAITasks = async (projectId, count) => {
                       <ProjectCard
                         key={project._id}
                         project={project}
+                        progress={projectProgress(project._id)}
                         onEdit={(item) => {
                           setEditingProject(item);
                           setShowProjectModal(true);
                         }}
                         onDelete={handleDeleteProject}
                         onView={(item) => {
-                          alert(
-                            `${item.name}\n\n${
-                              item.description ||
-                              "No description"
-                            }\n\nStatus: ${
-                              item.status
-                            }`
+                          showToast(
+                            `${item.name} — ${item.description || "No description"} · Status: ${item.status}`,
+                            "info",
+                            5000
                           );
                         }}
                       />
@@ -808,9 +809,7 @@ const handleGenerateAITasks = async (projectId, count) => {
                         <TaskCard
                           key={task._id}
                           task={task}
-                          onToggle={
-                            handleToggleTask
-                          }
+                          onStatusChange={handleToggleTask}
                           onEdit={(item) => {
                             setEditingTask(item);
                             setShowTaskModal(true);
@@ -836,6 +835,7 @@ const handleGenerateAITasks = async (projectId, count) => {
 
       {showProjectModal && (
         <ProjectModal
+          users={users}
           project={editingProject}
           onClose={() => {
             setShowProjectModal(false);
